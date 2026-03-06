@@ -14,6 +14,7 @@ This repo packages the full setup into one Linux/macOS installer so you can recr
 
 - Prevents accidental billing mode confusion (for example, landing in API billing when you expected subscription).
 - Makes switching explicit and fast with one command.
+- Provides a simple built-in workflow to set/update/clear Anthropic API keys.
 - Persists mode settings across terminal sessions.
 - Installs a global Claude reminder hook so future sessions nudge you with the exact commands.
 - Adds a global `/claude-mode` command in Claude Code for quick help.
@@ -60,6 +61,12 @@ Check/help:
 claude-mode
 ```
 
+Configure Anthropic API key (hidden prompt):
+
+```bash
+claude-mode api-key
+```
+
 ## How `claude-mode` works
 
 `claude-mode` manages two files:
@@ -84,13 +91,26 @@ Your shell startup file sources `mode.env`, which exports/unsets the Anthropic-r
   - Exports `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY` for local-compatible providers.
   - Defaults to `http://localhost:11434`, auth token `ollama`, api key `unused`.
 
+### API key management
+
+Use these commands to manage Anthropic API keys:
+
+```bash
+claude-mode api-key              # prompt and save key (input hidden)
+claude-mode api-key set <KEY>    # set key directly
+claude-mode api-key show         # show masked key + path
+claude-mode api-key clear        # remove stored key
+claude-mode api                  # enable api mode using stored key
+```
+
 ## Global reminder integration
 
 The installer can add a Claude SessionStart hook that injects reminder context each session, prompting a short reminder in first responses with the key commands:
 
 - `claude-mode`
+- `claude-mode api-key`
 - `claude-mode subscription`
-- `claude-mode api <API_KEY>`
+- `claude-mode api`
 - `claude-mode local`
 - `source ~/.config/claude-code/mode.env`
 

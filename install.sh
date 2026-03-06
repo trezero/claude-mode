@@ -385,7 +385,8 @@ configure_default_mode() {
         echo >&2
         [ -n "$api_key" ] || fatal "API key is required for api mode."
         base_url="$(prompt_input "Anthropic base URL" "https://api.anthropic.com")"
-        ANTHROPIC_API_KEY="$api_key" "$claude_mode_bin" api "" "$base_url" >/dev/null
+        "$claude_mode_bin" api-key set "$api_key" >/dev/null
+        "$claude_mode_bin" api "" "$base_url" >/dev/null
         success "Default mode set to api."
         break
         ;;
@@ -419,7 +420,8 @@ show_summary() {
   echo "Next steps:"
   echo "  1) Open a new terminal OR run: source ${XDG_CONFIG_HOME:-$HOME/.config}/claude-code/mode.env"
   echo "  2) Run: claude-mode"
-  echo "  3) In Claude Code, use /claude-mode anytime for a reminder"
+  echo "  3) Configure/update API key anytime: claude-mode api-key"
+  echo "  4) In Claude Code, use /claude-mode anytime for a reminder"
 }
 
 main() {
