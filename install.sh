@@ -98,6 +98,41 @@ require_cmd() {
   command -v "$cmd" >/dev/null 2>&1 || fatal "Required command not found: $cmd"
 }
 
+detect_existing_installation() {
+  local install_dir="${1:-$HOME/.local/bin}"
+  local bin_path="$install_dir/claude-mode"
+  local config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/claude-code"
+  local mode_file="$config_dir/mode"
+  local mode_env="$config_dir/mode.env"
+  local claude_hook="$HOME/.claude/hooks/claude-mode-reminder-session-start.sh"
+  local claude_command="$HOME/.claude/commands/claude-mode.md"
+  
+  local found=0
+  local details=""
+  
+  if [ -f "$bin_path" ]; then
+    found=1
+    details="${details}  - Binary: $bin_path\n"
+  fi
+  
+  if [ -f "$mode_file" ] || [ -f "$mode_env" ]; then
+    found=1
+    details="${details}  - Configuration: $config_dir\n"
+  fi
+  
+  if [ -f "$claude_hook" ] || [ -f "$claude_command" ]; then
+    found=1
+    details="${details}  - Claude integration: ~/.claude/\n"
+  fi
+  
+  if [ $found -eq 1 ]; then
+    printf "%s" "$details"
+    return 0
+  else
+    return 1
+  fi
+}
+
 check_platform() {
   local os
   os="$(uname -s)"
@@ -151,9 +186,16 @@ PY
 
 install_binary() {
   local install_dir="$1"
+  local is_reinstall="${2:-false}"
   local target="$install_dir/claude-mode"
 
   mkdir -p "$install_dir"
+  
+  if [ "$is_reinstall" = "true" ] && [ -f "$target" ]; then
+    backup_file "$target"
+    info "Backed up existing binary"
+  fi
+  
   cp "$ASSETS_DIR/bin/claude-mode" "$target"
   chmod +x "$target"
 
@@ -170,10 +212,21 @@ EOF_BLOCK
 
 configure_shell_integration() {
   local install_dir="$1"
+  local is_reinstall="${2:-false}"
   local -a files=()
 
   echo
   info "Step 2/5: Shell integration"
+  
+  if [ "$is_reinstall" = "true" ]; then
+    if prompt_yes_no "Update shell integration?" "n"; then
+      echo "Choose which shell startup file(s) to update:"
+    else
+      warn "Skipping shell integration update."
+      return 0
+    fi
+  fi
+  
   echo "Choose which shell startup file(s) to update:"
   echo "  [1] ~/.bashrc"
   echo "  [2] ~/.zshrc"
@@ -268,10 +321,17 @@ PY
 }
 
 configure_claude_global() {
+  local is_reinstall="${1:-false}"
+  
   echo
   info "Step 3/5: Global Claude helpers"
 
-  if ! prompt_yes_no "Install global SessionStart reminder hook and /claude-mode command?" "y"; then
+  local default_answer="y"
+  if [ "$is_reinstall" = "true" ]; then
+    default_answer="n"
+  fi
+
+  if ! prompt_yes_no "Install global SessionStart reminder hook and /claude-mode command?" "$default_answer"; then
     warn "Skipping global Claude helper installation."
     return 0
   fi
@@ -362,9 +422,18 @@ PY
 
 configure_default_mode() {
   local claude_mode_bin="$1"
+  local is_reinstall="${2:-false}"
 
   echo
   info "Step 4/5: Choose default Claude mode"
+  
+  if [ "$is_reinstall" = "true" ]; then
+    if ! prompt_yes_no "Reconfigure default Claude mode?" "n"; then
+      warn "Keeping existing mode configuration."
+      return 0
+    fi
+  fi
+  
   echo "  [1] subscription (Claude Code subscription / OAuth)"
   echo "  [2] api          (direct Anthropic API billing)"
   echo "  [3] local        (local-compatible endpoint, e.g. Ollama)"
@@ -436,17 +505,45 @@ main() {
   [ -d "$ASSETS_DIR" ] || fatal "Missing assets directory: $ASSETS_DIR"
   [ -f "$ASSETS_DIR/bin/claude-mode" ] || fatal "Missing asset: $ASSETS_DIR/bin/claude-mode"
 
+  local is_reinstall="false"
+  local install_dir="$HOME/.local/bin"
+  
+  echo
+  if existing_details="$(detect_existing_installation "$install_dir")"; then
+    warn "Existing claude-mode installation detected:"
+    printf "%b" "$existing_details"
+    echo
+    
+    if prompt_yes_no "Do you want to reinstall/update?" "y"; then
+      is_reinstall="true"
+      info "Proceeding with reinstall..."
+    else
+      info "Installation cancelled."
+      exit 0
+    fi
+  fi
+
   echo
   info "Step 1/5: Install claude-mode command"
-  local install_dir
-  install_dir="$(prompt_input "Install directory" "$HOME/.local/bin")"
+  
+  if [ "$is_reinstall" = "false" ]; then
+    install_dir="$(prompt_input "Install directory" "$HOME/.local/bin")"
+  else
+    info "Using existing install directory: $install_dir"
+  fi
+  
   local bin_path
-  bin_path="$(install_binary "$install_dir")"
-  success "Installed claude-mode at $bin_path"
+  bin_path="$(install_binary "$install_dir" "$is_reinstall")"
+  
+  if [ "$is_reinstall" = "true" ]; then
+    success "Updated claude-mode at $bin_path"
+  else
+    success "Installed claude-mode at $bin_path"
+  fi
 
-  configure_shell_integration "$install_dir"
-  configure_claude_global
-  configure_default_mode "$bin_path"
+  configure_shell_integration "$install_dir" "$is_reinstall"
+  configure_claude_global "$is_reinstall"
+  configure_default_mode "$bin_path" "$is_reinstall"
   show_summary "$bin_path"
 }
 
