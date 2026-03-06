@@ -39,7 +39,7 @@ Running `install.sh` can configure all of the following:
 One-line installer (Linux/macOS):
 
 ```bash
-tmpdir="$(mktemp -d)" && curl -fsSL https://github.com/trezero/claude-mode/archive/refs/tags/v1.0.0.tar.gz | tar -xz -C "$tmpdir" && bash "$tmpdir/claude-mode-1.0.0/install.sh"
+tmpdir="$(mktemp -d)" && curl -fsSL https://github.com/trezero/claude-mode/archive/refs/tags/v1.0.1.tar.gz | tar -xz -C "$tmpdir" && bash "$tmpdir/claude-mode-1.0.1/install.sh"
 ```
 
 Local clone/install:
